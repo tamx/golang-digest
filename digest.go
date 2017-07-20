@@ -118,19 +118,23 @@ func checkAuth(authenticate string, method string, checkHandler func(string) str
 	return false
 }
 
-var handler func(http.ResponseWriter, *http.Request) = nil
-var checkHandler func(string) string = nil
-
-func HandleFunc(pattern string, c func(string) string, h func(http.ResponseWriter, *http.Request)) {
-	checkHandler = c
-	handler = h
+type DigestAuth struct {
+	checkHandler func(string) string
+	handler      func(http.ResponseWriter, *http.Request)
 }
 
-func CheckAuth(w http.ResponseWriter, r *http.Request) {
+func NewDigestAuth(c func(string) string, h func(http.ResponseWriter, *http.Request)) *DigestAuth {
+	digestauth := new(DigestAuth)
+	digestauth.checkHandler = c
+	digestauth.handler = h
+	return digestauth
+}
+
+func (digestauth *DigestAuth) HandleFunc(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	auth := r.Header.Get("Authorization")
-	if checkAuth(auth, method, checkHandler) {
-		handler(w, r)
+	if checkAuth(auth, method, digestauth.checkHandler) {
+		digestauth.handler(w, r)
 	} else {
 		w.Header().Set("WWW-Authenticate",
 			"Digest realm=\"secret\", nonce=\"12345678901234567890123456789012\", algorithm=MD5, qop=auth")
@@ -150,7 +154,6 @@ func Logger(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	HandleFunc("/", CheckPassword, Logger)
-	http.HandleFunc("/", CheckAuth)
+	http.HandleFunc("/", NewDigestAuth(CheckPassword, Logger).HandleFunc)
 	http.ListenAndServe(":8080", nil)
 }
