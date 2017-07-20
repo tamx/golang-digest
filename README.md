@@ -5,7 +5,7 @@ The example code is below.
 
 http.client example:
 
-    client := NewDigestAuthClient(new(http.Client), "tam", "test")
+    client := digest.NewDigestAuthClient(new(http.Client), "tam", "test")
 	resp, _ := client.Get("http://www.google.co.jp/")
 	byteArray, _ := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(byteArray))
@@ -13,7 +13,7 @@ http.client example:
 urlfetch example:
 
     c := appengine.NewContext(r)
-    client := NewDigestAuthClient(urlfetch.Client(c), "tam", "test")
+    client := digest.NewDigestAuthClient(urlfetch.Client(c), "tam", "test")
 	resp, _ := client.Get("http://www.google.co.jp/")
 	byteArray, _ := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(byteArray))
