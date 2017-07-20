@@ -3,11 +3,12 @@ package digest
 import (
 	"crypto/md5"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 )
 
-func auth(authenticate string, uri string, username string, password string, method string) string {
+func computeAuth(authenticate string, uri string, username string, password string, method string) string {
 	if strings.HasPrefix(authenticate, "Basic ") {
 		// not implemented
 	} else if strings.HasPrefix(authenticate, "Digest ") {
@@ -153,7 +154,41 @@ func Logger(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello.")
 }
 
-func main() {
+type DigestAuthClient struct {
+	client   *http.Client
+	username string
+	password string
+}
+
+func NewDigestAuthClient(c *http.Client, user, pass string) *DigestAuthClient {
+	client := new(DigestAuthClient)
+	client.client = c
+	client.username = user
+	client.password = pass
+	return client
+}
+
+func (c *DigestAuthClient) Get(url string) (resp *http.Response, err error) {
+	resp, err = c.client.Get(url)
+	if resp.StatusCode == http.StatusUnauthorized {
+		method := "GET"
+		auth := resp.Header.Get("WWW-Authenticate")
+		response := computeAuth(auth, url, c.username, c.password, method)
+		req, _ := http.NewRequest(method, url, nil)
+		req.Header.Set("Authorization", response)
+		resp, err = c.client.Do(req)
+	}
+	return resp, err
+}
+
+func testServer() {
 	http.HandleFunc("/", NewDigestAuth(CheckPassword, Logger).HandleFunc)
 	http.ListenAndServe(":8080", nil)
+}
+
+func testClient() {
+	client := NewDigestAuthClient(new(http.Client), "tam", "test")
+	resp, _ := client.Get("http://35.189.133.45/")
+	byteArray, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(byteArray))
 }
