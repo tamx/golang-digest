@@ -1,10 +1,12 @@
-package digest
+package main
 
 import (
+	"bytes"
 	"crypto/md5"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -119,27 +121,17 @@ func checkAuth(authenticate string, method string, checkHandler func(string) str
 	return false
 }
 
-type DigestAuth struct {
-	checkHandler func(string) string
-	handler      func(http.ResponseWriter, *http.Request)
-}
-
-func NewDigestAuth(c func(string) string, h func(http.ResponseWriter, *http.Request)) *DigestAuth {
-	digestauth := new(DigestAuth)
-	digestauth.checkHandler = c
-	digestauth.handler = h
-	return digestauth
-}
-
-func (digestauth *DigestAuth) HandleFunc(w http.ResponseWriter, r *http.Request) {
-	method := r.Method
-	auth := r.Header.Get("Authorization")
-	if checkAuth(auth, method, digestauth.checkHandler) {
-		digestauth.handler(w, r)
-	} else {
-		w.Header().Set("WWW-Authenticate",
-			"Digest realm=\"secret\", nonce=\"12345678901234567890123456789012\", algorithm=MD5, qop=auth")
-		http.Error(w, "Auth required", http.StatusUnauthorized)
+func HandleFunc(checkHandler func(string) string, handler func(http.ResponseWriter, *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		method := r.Method
+		auth := r.Header.Get("Authorization")
+		if checkAuth(auth, method, checkHandler) {
+			handler(w, r)
+		} else {
+			w.Header().Set("WWW-Authenticate",
+				"Digest realm=\"secret\", nonce=\"12345678901234567890123456789012\", algorithm=MD5, qop=auth")
+			http.Error(w, "Auth required", http.StatusUnauthorized)
+		}
 	}
 }
 
@@ -181,14 +173,27 @@ func (c *DigestAuthClient) Get(url string) (resp *http.Response, err error) {
 	return resp, err
 }
 
+func (c *DigestAuthClient) PostForm(url string, data url.Values) (resp *http.Response, err error) {
+	resp, err = c.client.PostForm(url, data)
+	if err == nil && resp.StatusCode == http.StatusUnauthorized {
+		method := "POST"
+		auth := resp.Header.Get("WWW-Authenticate")
+		response := computeAuth(auth, url, c.username, c.password, method)
+		req, _ := http.NewRequest(method, url, bytes.NewBufferString(data.Encode()))
+		req.Header.Set("Authorization", response)
+		resp, err = c.client.Do(req)
+	}
+	return resp, err
+}
+
 func testServer() {
-	http.HandleFunc("/", NewDigestAuth(CheckPassword, Logger).HandleFunc)
-	http.ListenAndServe(":8080", nil)
+	http.HandleFunc("/", HandleFunc(CheckPassword, Logger))
+	http.ListenAndServe("0.0.0.0:8080", nil)
 }
 
 func testClient() {
 	client := NewDigestAuthClient(new(http.Client), "tam", "test")
-	resp, _ := client.Get("http://35.189.133.45/")
+	resp, _ := client.Get("http://www.google.co.jp/")
 	byteArray, _ := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(byteArray))
 }
