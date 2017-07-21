@@ -33,7 +33,7 @@ GAE server example:
 
     func init() {
       http.HandleFunc("/",
-        digest.NewDigestAuth(CheckPassword, Logger).HandleFunc)
+        digest.HandleFunc(CheckPassword, Logger))
     }
 
     func CheckPassword(username string) string {
