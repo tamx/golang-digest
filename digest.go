@@ -170,7 +170,7 @@ func NewDigestAuthClient(c *http.Client, user, pass string) *DigestAuthClient {
 
 func (c *DigestAuthClient) Get(url string) (resp *http.Response, err error) {
 	resp, err = c.client.Get(url)
-	if resp.StatusCode == http.StatusUnauthorized {
+	if err == nil && resp.StatusCode == http.StatusUnauthorized {
 		method := "GET"
 		auth := resp.Header.Get("WWW-Authenticate")
 		response := computeAuth(auth, url, c.username, c.password, method)
