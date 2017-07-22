@@ -121,7 +121,7 @@ func checkAuth(authenticate string, method string, checkHandler func(string) str
 	return false
 }
 
-func HandleFunc(checkHandler func(string) string, handler func(http.ResponseWriter, *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+func Handler(checkHandler func(string) string, handler func(http.ResponseWriter, *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		method := r.Method
 		auth := r.Header.Get("Authorization")
@@ -187,7 +187,7 @@ func (c *DigestAuthClient) PostForm(url string, data url.Values) (resp *http.Res
 }
 
 func testServer() {
-	http.HandleFunc("/", HandleFunc(CheckPassword, Logger))
+	http.HandleFunc("/", Handler(CheckPassword, Logger))
 	http.ListenAndServe("0.0.0.0:8080", nil)
 }
 
@@ -196,4 +196,8 @@ func testClient() {
 	resp, _ := client.Get("http://www.google.co.jp/")
 	byteArray, _ := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(byteArray))
+}
+
+func main() {
+	testServer()
 }
