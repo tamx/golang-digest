@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"golang.org/x/net/websocket"
 )
 
 func computeAuth(authenticate string, uri string, username string, password string, method string) string {
@@ -184,6 +186,24 @@ func (c *DigestAuthClient) PostForm(url string, data url.Values) (resp *http.Res
 		resp, err = c.client.Do(req)
 	}
 	return resp, err
+}
+
+func DialWebSocket(url, origin string, user, pass string) (ws *websocket.Conn, err error) {
+	resp, err := new(http.Client).Get("http:" + string(url[3:]))
+	if err == nil && resp.StatusCode == http.StatusUnauthorized {
+		method := "GET"
+		auth := resp.Header.Get("WWW-Authenticate")
+		response := computeAuth(auth, url, user, pass, method)
+		config, err := websocket.NewConfig(url, origin)
+		if err != nil {
+			// log.Fatal(err)
+		}
+		config.Header = http.Header{
+			"Authorization": {response},
+		}
+		ws, err = websocket.DialConfig(config)
+	}
+	return ws, err
 }
 
 func testServer() {
