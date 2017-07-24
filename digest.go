@@ -123,6 +123,25 @@ func checkAuth(authenticate string, method string, checkHandler func(string) str
 	return false
 }
 
+func GetUsername(r *http.Request) string {
+	authenticate := r.Header.Get("Authorization")
+	if authenticate == "" {
+		return ""
+	}
+	if !strings.HasPrefix(authenticate, "Digest ") {
+		return ""
+	}
+	authparam := strings.Split(authenticate[7:], ",")
+	username := ""
+	for s := range authparam {
+		if strings.Index(authparam[s], "username=") != -1 {
+			username = parseAuthParam(authparam[s])
+			return username
+		}
+	}
+	return ""
+}
+
 func Handler(checkHandler func(string) string, handler func(http.ResponseWriter, *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		method := r.Method
