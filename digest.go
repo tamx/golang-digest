@@ -62,7 +62,7 @@ func computeResponse(username, realm, password, method, uri, nonce, nc, cnonce s
 	return responseMD5
 }
 
-func checkAuth(authenticate string, method string, checkHandler func(string) string) bool {
+func CheckAuth(authenticate string, method string, checkHandler func(string) string) bool {
 	if authenticate == "" {
 		return false
 	}
@@ -146,7 +146,7 @@ func Handler(checkHandler func(string) string, handler func(http.ResponseWriter,
 	return func(w http.ResponseWriter, r *http.Request) {
 		method := r.Method
 		auth := r.Header.Get("Authorization")
-		if checkAuth(auth, method, checkHandler) {
+		if CheckAuth(auth, method, checkHandler) {
 			handler(w, r)
 		} else {
 			w.Header().Set("WWW-Authenticate",
