@@ -5,14 +5,27 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"golang.org/x/net/websocket"
 )
 
-func computeAuth(authenticate string, uri string, username string, password string, method string) string {
+func randomHex(precision int) string {
+	rand.Seed(time.Now().UnixNano())
+	result := ""
+	for i := 0; i < precision; i++ {
+		random := rand.Intn(16)
+		result += fmt.Sprintf("%x", random)
+	}
+	return result
+}
+
+func computeAuth(authenticate string, uri string, username string, password string,
+	method string) string {
 	if strings.HasPrefix(authenticate, "Basic ") {
 		// not implemented
 	} else if strings.HasPrefix(authenticate, "Digest ") {
@@ -29,7 +42,8 @@ func computeAuth(authenticate string, uri string, username string, password stri
 		}
 		nc := "00000001"
 		cnonce := "e79e26e0d17c978d"
-		responseMD5 := computeResponse(username, realm, password, method, uri, nonce, nc, cnonce)
+		responseMD5 := computeResponse(username, realm, password,
+			method, uri, nonce, nc, cnonce)
 
 		resheader := "Digest username=\"" + username + "\", realm=\""
 		resheader += realm + "\", nonce=\"" + nonce + "\", uri=\"" + uri
@@ -51,7 +65,8 @@ func parseAuthParam(param string) string {
 	return param
 }
 
-func computeResponse(username, realm, password, method, uri, nonce, nc, cnonce string) string {
+func computeResponse(username, realm, password,
+	method, uri, nonce, nc, cnonce string) string {
 	A1 := username + ":" + realm + ":" + password
 	A1MD5 := fmt.Sprintf("%x", md5.Sum([]byte(A1)))
 	A2 := method + ":" + uri
@@ -62,7 +77,8 @@ func computeResponse(username, realm, password, method, uri, nonce, nc, cnonce s
 	return responseMD5
 }
 
-func CheckAuth(authenticate string, method string, checkHandler func(string) string) bool {
+func CheckAuth(authenticate string, method string,
+	checkHandler func(string) string) bool {
 	if authenticate == "" {
 		return false
 	}
@@ -142,15 +158,19 @@ func GetUsername(r *http.Request) string {
 	return ""
 }
 
-func Handler(checkHandler func(string) string, handler func(http.ResponseWriter, *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+func Handler(checkHandler func(string) string,
+	handler func(http.ResponseWriter, *http.Request)) func(w http.ResponseWriter,
+	r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		method := r.Method
 		auth := r.Header.Get("Authorization")
 		if CheckAuth(auth, method, checkHandler) {
 			handler(w, r)
 		} else {
+			nonce := randomHex(32)
 			w.Header().Set("WWW-Authenticate",
-				"Digest realm=\"secret\", nonce=\"12345678901234567890123456789012\", algorithm=MD5, qop=auth")
+				"Digest realm=\"secret\", nonce=\""+nonce+
+					"\", algorithm=MD5, qop=auth")
 			http.Error(w, "Auth required", http.StatusUnauthorized)
 		}
 	}
