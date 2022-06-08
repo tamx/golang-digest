@@ -1,4 +1,4 @@
-module golang-digest
+module github.com/tamx/golang-digest
 
 go 1.17
 
