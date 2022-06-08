@@ -214,6 +214,20 @@ func (c *DigestAuthClient) Get(url string) (resp *http.Response, err error) {
 	return resp, err
 }
 
+func (c *DigestAuthClient) Do(req *http.Request) (resp *http.Response,
+	err error) {
+	resp, err = c.client.Do(req)
+	if err == nil && resp.StatusCode == http.StatusUnauthorized {
+		method := req.Method
+		auth := resp.Header.Get("WWW-Authenticate")
+		response := computeAuth(auth, req.URL.String(),
+			c.username, c.password, method)
+		req.Header.Set("Authorization", response)
+		resp, err = c.client.Do(req)
+	}
+	return resp, err
+}
+
 func (c *DigestAuthClient) PostForm(url string, data url.Values) (resp *http.Response, err error) {
 	resp, err = c.client.PostForm(url, data)
 	if err == nil && resp.StatusCode == http.StatusUnauthorized {
