@@ -33,10 +33,10 @@ func computeAuth(authenticate string, uri string, username string, password stri
 		realm := ""
 		nonce := ""
 		for s := range authparam {
-			if strings.Index(authparam[s], "realm=") != -1 {
+			if strings.Contains(authparam[s], "realm=") {
 				realm = parseAuthParam(authparam[s])
 			}
-			if strings.Index(authparam[s], "nonce=") != -1 {
+			if strings.Contains(authparam[s], "nonce=") {
 				nonce = parseAuthParam(authparam[s])
 			}
 		}
@@ -58,17 +58,23 @@ func computeAuth(authenticate string, uri string, username string, password stri
 
 func parseAuthParam(param string) string {
 	param = param[strings.Index(param, "=")+1:]
-	if strings.Index(param, "\"") != -1 {
+	if strings.Contains(param, "\"") {
 		param = param[strings.Index(param, "\"")+1:]
 		param = param[:strings.Index(param, "\"")]
 	}
 	return param
 }
 
-func computeResponse(username, realm, password,
-	method, uri, nonce, nc, cnonce string) string {
+func ComputeMD5Password(username,
+	realm, password string) string {
 	A1 := username + ":" + realm + ":" + password
 	A1MD5 := fmt.Sprintf("%x", md5.Sum([]byte(A1)))
+	return A1MD5
+}
+
+func computeResponse(username, realm, password,
+	method, uri, nonce, nc, cnonce string) string {
+	A1MD5 := ComputeMD5Password(username, realm, password)
 	A2 := method + ":" + uri
 	A2MD5 := fmt.Sprintf("%x", md5.Sum([]byte(A2)))
 	response := A1MD5 + ":" + nonce + ":" + nc + ":" + cnonce
@@ -94,33 +100,33 @@ func CheckAuth(authenticate string, method string,
 	cnonce := ""
 	response := ""
 	for s := range authparam {
-		if strings.Index(authparam[s], "username=") != -1 {
+		if strings.Contains(authparam[s], "username=") {
 			username = parseAuthParam(authparam[s])
 		}
-		if strings.Index(authparam[s], "realm=") != -1 {
+		if strings.Contains(authparam[s], "realm=") {
 			realm = parseAuthParam(authparam[s])
 		}
-		if strings.Index(authparam[s], " nonce=") != -1 {
+		if strings.Contains(authparam[s], " nonce=") {
 			nonce = parseAuthParam(authparam[s])
 		}
-		if strings.Index(authparam[s], "uri=") != -1 {
+		if strings.Contains(authparam[s], "uri=") {
 			uri = parseAuthParam(authparam[s])
 		}
-		if strings.Index(authparam[s], "nc=") != -1 {
+		if strings.Contains(authparam[s], "nc=") {
 			nc = parseAuthParam(authparam[s])
 		}
-		if strings.Index(authparam[s], "cnonce=") != -1 {
+		if strings.Contains(authparam[s], "cnonce=") {
 			cnonce = parseAuthParam(authparam[s])
 		}
-		if strings.Index(authparam[s], "response=") != -1 {
+		if strings.Contains(authparam[s], "response=") {
 			response = parseAuthParam(authparam[s])
 		}
-		if strings.Index(authparam[s], "qop=") != -1 {
+		if strings.Contains(authparam[s], "qop=") {
 			if parseAuthParam(authparam[s]) != "auth" {
 				return false
 			}
 		}
-		if strings.Index(authparam[s], "algorithm=") != -1 {
+		if strings.Contains(authparam[s], "algorithm=") {
 			if parseAuthParam(authparam[s]) != "MD5" {
 				return false
 			}
@@ -150,7 +156,7 @@ func GetUsername(r *http.Request) string {
 	authparam := strings.Split(authenticate[7:], ",")
 	username := ""
 	for s := range authparam {
-		if strings.Index(authparam[s], "username=") != -1 {
+		if strings.Contains(authparam[s], "username=") {
 			username = parseAuthParam(authparam[s])
 			return username
 		}
@@ -243,7 +249,8 @@ func (c *DigestAuthClient) PostForm(url string, data url.Values) (resp *http.Res
 	return resp, err
 }
 
-func DialWebSocket(url, origin string, user, pass string) (ws *websocket.Conn, err error) {
+func DialWebSocket(url, origin string,
+	user, pass string) (ws *websocket.Conn, err error) {
 	resp, err := new(http.Client).Get("http:" + string(url[3:]))
 	if err == nil && resp.StatusCode == http.StatusUnauthorized {
 		method := "GET"
@@ -252,11 +259,13 @@ func DialWebSocket(url, origin string, user, pass string) (ws *websocket.Conn, e
 		config, err := websocket.NewConfig(url, origin)
 		if err != nil {
 			// log.Fatal(err)
+			return nil, err
 		}
 		config.Header = http.Header{
 			"Authorization": {response},
 		}
 		ws, err = websocket.DialConfig(config)
+		return ws, err
 	}
 	return ws, err
 }
