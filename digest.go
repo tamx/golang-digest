@@ -216,14 +216,15 @@ func (c *DigestAuthClient) Get(url string) (resp *http.Response, err error) {
 
 func (c *DigestAuthClient) Do(req *http.Request) (resp *http.Response,
 	err error) {
-	resp, err = c.client.Do(req)
+	resp, err = c.client.Get(req.URL.String())
 	if err == nil && resp.StatusCode == http.StatusUnauthorized {
 		method := req.Method
 		auth := resp.Header.Get("WWW-Authenticate")
 		response := computeAuth(auth, req.URL.String(),
 			c.username, c.password, method)
 		req.Header.Set("Authorization", response)
-		fmt.Println(req.ContentLength)
+		resp, err = c.client.Do(req)
+	} else if err == nil {
 		resp, err = c.client.Do(req)
 	}
 	return resp, err
