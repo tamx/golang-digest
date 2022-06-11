@@ -223,6 +223,7 @@ func (c *DigestAuthClient) Do(req *http.Request) (resp *http.Response,
 		response := computeAuth(auth, req.URL.String(),
 			c.username, c.password, method)
 		req.Header.Set("Authorization", response)
+		fmt.Println(req.ContentLength)
 		resp, err = c.client.Do(req)
 	}
 	return resp, err
