@@ -24,7 +24,8 @@ func randomHex(precision int) string {
 	return result
 }
 
-func computeAuth(authenticate string, uri string, username string, password string,
+func computeAuth(authenticate string, uri string,
+	username string, password string,
 	method string) string {
 	if strings.HasPrefix(authenticate, "Basic ") {
 		// not implemented
@@ -42,7 +43,9 @@ func computeAuth(authenticate string, uri string, username string, password stri
 		}
 		nc := "00000001"
 		cnonce := "e79e26e0d17c978d"
-		responseMD5 := computeResponse(username, realm, password,
+		A1MD5 := ComputeMD5Password(username, realm,
+			password)
+		responseMD5 := computeResponse(A1MD5,
 			method, uri, nonce, nc, cnonce)
 
 		resheader := "Digest username=\"" + username + "\", realm=\""
@@ -72,9 +75,8 @@ func ComputeMD5Password(username,
 	return A1MD5
 }
 
-func computeResponse(username, realm, password,
+func computeResponse(A1MD5,
 	method, uri, nonce, nc, cnonce string) string {
-	A1MD5 := ComputeMD5Password(username, realm, password)
 	A2 := method + ":" + uri
 	A2MD5 := fmt.Sprintf("%x", md5.Sum([]byte(A2)))
 	response := A1MD5 + ":" + nonce + ":" + nc + ":" + cnonce
@@ -84,7 +86,7 @@ func computeResponse(username, realm, password,
 }
 
 func CheckAuth(authenticate string, method string,
-	checkHandler func(string) string) bool {
+	checkHandler func(string, string) string) bool {
 	if authenticate == "" {
 		return false
 	}
@@ -133,11 +135,11 @@ func CheckAuth(authenticate string, method string,
 		}
 	}
 
-	password := checkHandler(username)
-	if password == "" {
+	A1MD5 := checkHandler(username, realm)
+	if A1MD5 == "" {
 		return false
 	}
-	expected := computeResponse(username, realm, password,
+	expected := computeResponse(A1MD5,
 		method, uri, nonce, nc, cnonce)
 	if expected == response {
 		return true
@@ -164,7 +166,7 @@ func GetUsername(r *http.Request) string {
 	return ""
 }
 
-func Handler(checkHandler func(string) string,
+func Handler(checkHandler func(string, string) string,
 	handler func(http.ResponseWriter, *http.Request)) func(w http.ResponseWriter,
 	r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -182,9 +184,12 @@ func Handler(checkHandler func(string) string,
 	}
 }
 
-func CheckPassword(username string) string {
+func CheckPassword(username, realm string) string {
 	if username == "tam" {
-		return "test"
+		A1MD5 := ComputeMD5Password(
+			username, realm,
+			"test")
+		return A1MD5
 	}
 	return ""
 }
