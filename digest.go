@@ -166,7 +166,7 @@ func GetUsername(r *http.Request) string {
 	return ""
 }
 
-func Handler(checkHandler func(string, string) string,
+func StrictHandler(checkHandler func(string, string) string,
 	handler func(http.ResponseWriter, *http.Request)) func(w http.ResponseWriter,
 	r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -184,7 +184,26 @@ func Handler(checkHandler func(string, string) string,
 	}
 }
 
-func CheckPassword(username, realm string) string {
+func Handler(checkPassword func(string) string,
+	handler func(http.ResponseWriter, *http.Request)) func(w http.ResponseWriter,
+	r *http.Request) {
+	checkHandler := func(username, realm string) string {
+		password := checkPassword(username)
+		A1MD5 := ComputeMD5Password(username,
+			realm, password)
+		return A1MD5
+	}
+	return StrictHandler(checkHandler, handler)
+}
+
+func CheckPassword(username string) string {
+	if username == "tam" {
+		return "test"
+	}
+	return ""
+}
+
+func CreateA1MD5(username, realm string) string {
 	if username == "tam" {
 		A1MD5 := ComputeMD5Password(
 			username, realm,
