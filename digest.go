@@ -4,18 +4,16 @@ import (
 	"bytes"
 	"crypto/md5"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"golang.org/x/net/websocket"
 )
 
 func randomHex(precision int) string {
-	rand.Seed(time.Now().UnixNano())
 	result := ""
 	for i := 0; i < precision; i++ {
 		random := rand.Intn(16)
@@ -24,7 +22,7 @@ func randomHex(precision int) string {
 	return result
 }
 
-func computeAuth(authenticate string, uri string,
+func ComputeAuth(authenticate string, uri string,
 	username string, password string,
 	method string) string {
 	if strings.HasPrefix(authenticate, "Basic ") {
@@ -236,7 +234,7 @@ func (c *DigestAuthClient) Get(url string) (resp *http.Response, err error) {
 	if err == nil && resp.StatusCode == http.StatusUnauthorized {
 		method := "GET"
 		auth := resp.Header.Get("WWW-Authenticate")
-		response := computeAuth(auth, url, c.username, c.password, method)
+		response := ComputeAuth(auth, url, c.username, c.password, method)
 		req, _ := http.NewRequest(method, url, nil)
 		req.Header.Set("Authorization", response)
 		resp, err = c.client.Do(req)
@@ -250,7 +248,7 @@ func (c *DigestAuthClient) Do(req *http.Request) (resp *http.Response,
 	if err == nil && resp.StatusCode == http.StatusUnauthorized {
 		method := req.Method
 		auth := resp.Header.Get("WWW-Authenticate")
-		response := computeAuth(auth, req.URL.String(),
+		response := ComputeAuth(auth, req.URL.String(),
 			c.username, c.password, method)
 		req.Header.Set("Authorization", response)
 		resp, err = c.client.Do(req)
@@ -265,7 +263,7 @@ func (c *DigestAuthClient) PostForm(url string, data url.Values) (resp *http.Res
 	if err == nil && resp.StatusCode == http.StatusUnauthorized {
 		method := "POST"
 		auth := resp.Header.Get("WWW-Authenticate")
-		response := computeAuth(auth, url, c.username, c.password, method)
+		response := ComputeAuth(auth, url, c.username, c.password, method)
 		req, _ := http.NewRequest(method, url, bytes.NewBufferString(data.Encode()))
 		req.Header.Set("Authorization", response)
 		resp, err = c.client.Do(req)
@@ -279,7 +277,7 @@ func DialWebSocket(url, origin string,
 	if err == nil && resp.StatusCode == http.StatusUnauthorized {
 		method := "GET"
 		auth := resp.Header.Get("WWW-Authenticate")
-		response := computeAuth(auth, url, user, pass, method)
+		response := ComputeAuth(auth, url, user, pass, method)
 		config, err := websocket.NewConfig(url, origin)
 		if err != nil {
 			// log.Fatal(err)
@@ -302,7 +300,7 @@ func testServer() {
 func testClient() {
 	client := NewDigestAuthClient(new(http.Client), "tam", "test")
 	resp, _ := client.Get("http://www.google.co.jp/")
-	byteArray, _ := ioutil.ReadAll(resp.Body)
+	byteArray, _ := io.ReadAll(resp.Body)
 	fmt.Println(string(byteArray))
 }
 
