@@ -15,7 +15,7 @@ import (
 
 func randomHex(precision int) string {
 	result := ""
-	for i := 0; i < precision; i++ {
+	for range precision {
 		random := rand.Intn(16)
 		result += fmt.Sprintf("%x", random)
 	}
@@ -139,10 +139,7 @@ func CheckAuth(authenticate string, method string,
 	}
 	expected := computeResponse(A1MD5,
 		method, uri, nonce, nc, cnonce)
-	if expected == response {
-		return true
-	}
-	return false
+	return expected == response
 }
 
 func GetUsername(r *http.Request) string {
