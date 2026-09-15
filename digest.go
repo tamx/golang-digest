@@ -108,7 +108,7 @@ func CheckAuth(authenticate string, method string,
 		if strings.Contains(authparam[s], "realm=") {
 			realm = parseAuthParam(authparam[s])
 		}
-		if strings.Contains(authparam[s], " nonce=") {
+		if strings.Contains(authparam[s], "nonce=") {
 			nonce = parseAuthParam(authparam[s])
 		}
 		if strings.Contains(authparam[s], "uri=") {
