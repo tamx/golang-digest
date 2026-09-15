@@ -165,7 +165,7 @@ func StrictHandler(checkHandler func(string, string) string,
 	handler func(http.ResponseWriter, *http.Request)) func(w http.ResponseWriter,
 	r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		method := r.Method
+		method := strings.ToUpper(r.Method)
 		auth := r.Header.Get("Authorization")
 		if CheckAuth(auth, method, checkHandler) {
 			handler(w, r)
