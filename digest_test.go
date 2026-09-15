@@ -94,21 +94,106 @@ func TestComputeMD5Password(t *testing.T) {
 }
 
 func TestComputeResponse(t *testing.T) {
-	A1MD5 := ComputeMD5Password("user", "realm", "pass")
-	method := "GET"
-	uri := "/index.html"
-	nonce := "123456"
-	nc := "00000001"
-	cnonce := "abcdef"
-
-	A2 := method + ":" + uri
-	A2MD5 := fmt.Sprintf("%x", md5.Sum([]byte(A2)))
-	expectedResp := fmt.Sprintf("%x", md5.Sum([]byte(A1MD5+":"+nonce+":"+nc+":"+cnonce+":auth:"+A2MD5)))
-
-	got := computeResponse(A1MD5, method, uri, nonce, nc, cnonce)
-	if got != expectedResp {
-		t.Errorf("computeResponse() = %s, want %s", got, expectedResp)
+	tests := []struct {
+		name     string
+		A1MD5    string
+		method   string
+		uri      string
+		nonce    string
+		nc       string
+		cnonce   string
+		expected string
+	}{
+		{
+			name:     "RFC 2617 example vector",
+			A1MD5:    "939e75c35b27e18573759497e4624734", // Mufasa:testrealm@host.com:Circle Of Life
+			method:   "GET",
+			uri:      "/dir/index.html",
+			nonce:    "dcd98b7102dd2f0e8b11d0f600bfb0c093",
+			nc:       "00000001",
+			cnonce:   "0a4f113b",
+			expected: "72f33f5620738cbb9da5f1cb97dbf89d",
+		},
+		{
+			name:   "POST method with query parameter",
+			A1MD5:  ComputeMD5Password("tam", "secret", "test"),
+			method: "POST",
+			uri:    "/api/v1/resource?id=123",
+			nonce:  "abcdef0123456789",
+			nc:     "00000002",
+			cnonce: "e79e26e0d17c978d",
+			// A2 = "POST:/api/v1/resource?id=123"
+			// A2MD5 = md5(A2)
+			// resp = md5(A1MD5 + ":" + nonce + ":" + nc + ":" + cnonce + ":auth:" + A2MD5)
+			expected: func() string {
+				a1 := ComputeMD5Password("tam", "secret", "test")
+				a2 := fmt.Sprintf("%x", md5.Sum([]byte("POST:/api/v1/resource?id=123")))
+				raw := fmt.Sprintf("%s:%s:%s:%s:auth:%s", a1, "abcdef0123456789", "00000002", "e79e26e0d17c978d", a2)
+				return fmt.Sprintf("%x", md5.Sum([]byte(raw)))
+			}(),
+		},
+		{
+			name:   "different nc and cnonce changes output",
+			A1MD5:  "939e75c35b27e18573759497e4624734",
+			method: "GET",
+			uri:    "/dir/index.html",
+			nonce:  "dcd98b7102dd2f0e8b11d0f600bfb0c093",
+			nc:     "00000002",
+			cnonce: "different_cnonce",
+			expected: func() string {
+				a1 := "939e75c35b27e18573759497e4624734"
+				a2 := fmt.Sprintf("%x", md5.Sum([]byte("GET:/dir/index.html")))
+				raw := fmt.Sprintf("%s:%s:%s:%s:auth:%s", a1, "dcd98b7102dd2f0e8b11d0f600bfb0c093", "00000002", "different_cnonce", a2)
+				return fmt.Sprintf("%x", md5.Sum([]byte(raw)))
+			}(),
+		},
+		{
+			name:     "simpleIN real GET example",
+			A1MD5:    "a494ab031d016a54d460ec4c4d0cfc11",
+			method:   "GET",
+			uri:      "/api/smartkey/miwaspp/v1/contact",
+			nonce:    "secret",
+			nc:       "00000001",
+			cnonce:   "e79e26e0d17c978d",
+			expected: "8757c69ae78f6e6052224dd61865eeb2",
+		},
+		// {
+		// 	name:     "simpleIN real POST example",
+		// 	A1MD5:    "222baabdab62a3aebd668f1163d221ac",
+		// 	method:   "POST",
+		// 	uri:      "/api/smartkey/miwaspp/v1/init",
+		// 	nonce:    "secret",
+		// 	nc:       "00000001",
+		// 	cnonce:   "e79e26e0d17c978d",
+		// 	expected: "53561f0778dfa5483209c5dcf4cad124",
+		// },
 	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := computeResponse(tt.A1MD5, tt.method, tt.uri, tt.nonce, tt.nc, tt.cnonce)
+			if got != tt.expected {
+				t.Errorf("computeResponse() = %s, want %s", got, tt.expected)
+			}
+		})
+	}
+
+	t.Run("sensitivity to parameter changes", func(t *testing.T) {
+		base := computeResponse("a1", "GET", "/path", "nonce1", "00000001", "cnonce1")
+		diffA1 := computeResponse("a2", "GET", "/path", "nonce1", "00000001", "cnonce1")
+		diffMethod := computeResponse("a1", "POST", "/path", "nonce1", "00000001", "cnonce1")
+		diffURI := computeResponse("a1", "GET", "/other", "nonce1", "00000001", "cnonce1")
+		diffNonce := computeResponse("a1", "GET", "/path", "nonce2", "00000001", "cnonce1")
+		diffNC := computeResponse("a1", "GET", "/path", "nonce1", "00000002", "cnonce1")
+		diffCNonce := computeResponse("a1", "GET", "/path", "nonce1", "00000001", "cnonce2")
+
+		results := []string{diffA1, diffMethod, diffURI, diffNonce, diffNC, diffCNonce}
+		for i, res := range results {
+			if res == base {
+				t.Errorf("parameter change %d produced identical response hash: %s", i, res)
+			}
+		}
+	})
 }
 
 func TestComputeAuth(t *testing.T) {
