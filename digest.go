@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/labstack/echo/v4"
+
 	"golang.org/x/net/websocket"
 )
 
@@ -175,6 +177,23 @@ func StrictHandler(checkHandler func(string, string) string,
 				"Digest realm=\"secret\", nonce=\""+nonce+
 					"\", algorithm=MD5, qop=auth")
 			http.Error(w, "Auth required", http.StatusUnauthorized)
+		}
+	}
+}
+
+func StrictEchoHandler(checkHandler func(string, string) string,
+	handler func(echo.Context) error) func(echo.Context) error {
+	return func(ec echo.Context) error {
+		method := strings.ToUpper(ec.Request().Method)
+		auth := ec.Request().Header.Get("Authorization")
+		if CheckAuth(auth, method, checkHandler) {
+			return handler(ec)
+		} else {
+			nonce := randomHex(32)
+			ec.Response().Writer.Header().Set("WWW-Authenticate",
+				"Digest realm=\"secret\", nonce=\""+nonce+
+					"\", algorithm=MD5, qop=auth")
+			return ec.String(http.StatusUnauthorized, "Auth required")
 		}
 	}
 }
