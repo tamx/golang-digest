@@ -59,10 +59,10 @@ func ComputeAuth(authenticate string, uri string,
 }
 
 func parseAuthParam(param string) string {
-	param = param[strings.Index(param, "=")+1:]
-	if strings.Contains(param, "\"") {
-		param = param[strings.Index(param, "\"")+1:]
-		param = param[:strings.Index(param, "\"")]
+	param = strings.TrimSpace(param[strings.Index(param, "=")+1:])
+	if strings.HasPrefix(param, "\"") {
+		param = param[1:]
+		param = param[:strings.LastIndex(param, "\"")]
 	}
 	return param
 }
