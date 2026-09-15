@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/md5"
 	"fmt"
-	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -34,11 +33,11 @@ func ComputeAuth(authenticate string, uri string,
 		realm := ""
 		nonce := ""
 		for s := range authparam {
-			if strings.Contains(authparam[s], "realm=") {
-				realm = parseAuthParam(authparam[s])
-			}
-			if strings.Contains(authparam[s], "nonce=") {
-				nonce = parseAuthParam(authparam[s])
+			param := strings.TrimSpace(authparam[s])
+			if strings.HasPrefix(param, "realm=") {
+				realm = parseAuthParam(param)
+			} else if strings.HasPrefix(param, "nonce=") {
+				nonce = parseAuthParam(param)
 			}
 		}
 		nc := "00000001"
@@ -102,34 +101,27 @@ func CheckAuth(authenticate string, method string,
 	cnonce := ""
 	response := ""
 	for s := range authparam {
-		if strings.Contains(authparam[s], "username=") {
-			username = parseAuthParam(authparam[s])
-		}
-		if strings.Contains(authparam[s], "realm=") {
-			realm = parseAuthParam(authparam[s])
-		}
-		if strings.Contains(authparam[s], "nonce=") {
-			nonce = parseAuthParam(authparam[s])
-		}
-		if strings.Contains(authparam[s], "uri=") {
-			uri = parseAuthParam(authparam[s])
-		}
-		if strings.Contains(authparam[s], "nc=") {
-			nc = parseAuthParam(authparam[s])
-		}
-		if strings.Contains(authparam[s], "cnonce=") {
-			cnonce = parseAuthParam(authparam[s])
-		}
-		if strings.Contains(authparam[s], "response=") {
-			response = parseAuthParam(authparam[s])
-		}
-		if strings.Contains(authparam[s], "qop=") {
-			if parseAuthParam(authparam[s]) != "auth" {
+		param := strings.TrimSpace(authparam[s])
+		if strings.HasPrefix(param, "username=") {
+			username = parseAuthParam(param)
+		} else if strings.HasPrefix(param, "realm=") {
+			realm = parseAuthParam(param)
+		} else if strings.HasPrefix(param, "cnonce=") {
+			cnonce = parseAuthParam(param)
+		} else if strings.HasPrefix(param, "nonce=") {
+			nonce = parseAuthParam(param)
+		} else if strings.HasPrefix(param, "uri=") {
+			uri = parseAuthParam(param)
+		} else if strings.HasPrefix(param, "nc=") {
+			nc = parseAuthParam(param)
+		} else if strings.HasPrefix(param, "response=") {
+			response = parseAuthParam(param)
+		} else if strings.HasPrefix(param, "qop=") {
+			if parseAuthParam(param) != "auth" {
 				return false
 			}
-		}
-		if strings.Contains(authparam[s], "algorithm=") {
-			if parseAuthParam(authparam[s]) != "MD5" {
+		} else if strings.HasPrefix(param, "algorithm=") {
+			if parseAuthParam(param) != "MD5" {
 				return false
 			}
 		}
@@ -153,11 +145,10 @@ func GetUsername(r *http.Request) string {
 		return ""
 	}
 	authparam := strings.Split(authenticate[7:], ",")
-	username := ""
 	for s := range authparam {
-		if strings.Contains(authparam[s], "username=") {
-			username = parseAuthParam(authparam[s])
-			return username
+		param := strings.TrimSpace(authparam[s])
+		if strings.HasPrefix(param, "username=") {
+			return parseAuthParam(param)
 		}
 	}
 	return ""
@@ -306,20 +297,4 @@ func DialWebSocket(url, origin string,
 		return ws, err
 	}
 	return ws, err
-}
-
-func testServer() {
-	http.HandleFunc("/", Handler(CheckPassword, Logger))
-	http.ListenAndServe("0.0.0.0:8080", nil)
-}
-
-func testClient() {
-	client := NewDigestAuthClient(new(http.Client), "tam", "test")
-	resp, _ := client.Get("http://www.google.co.jp/")
-	byteArray, _ := io.ReadAll(resp.Body)
-	fmt.Println(string(byteArray))
-}
-
-func main() {
-	testServer()
 }
