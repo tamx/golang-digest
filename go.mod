@@ -3,7 +3,7 @@ module github.com/tamx/golang-digest
 go 1.26.0
 
 require (
-	github.com/labstack/echo/v4 v4.15.4
+	github.com/labstack/echo/v4 v4.16.0
 	golang.org/x/net v0.59.0
 )
 

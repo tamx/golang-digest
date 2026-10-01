@@ -178,7 +178,8 @@ func StrictEchoHandler(checkHandler func(string, string) string,
 		method := strings.ToUpper(ec.Request().Method)
 		auth := ec.Request().Header.Get("Authorization")
 		if CheckAuth(auth, method, checkHandler) {
-			return handler(ec)
+			ec2 := echo.New().NewContext(ec.Request(), ec.Response().Writer)
+			return handler(ec2)
 		} else {
 			nonce := randomHex(32)
 			ec.Response().Writer.Header().Set("WWW-Authenticate",
