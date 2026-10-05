@@ -524,6 +524,55 @@ func TestStrictEchoHandler(t *testing.T) {
 			t.Error("echoHandler should have been called")
 		}
 	})
+
+	t.Run("authorized POST request preserves body in handler", func(t *testing.T) {
+		const expectedBody = "hello=world&digest=test"
+		var receivedBody string
+
+		postHandlerCalled := false
+		postHandler := func(c echo.Context) error {
+			postHandlerCalled = true
+			b, err := io.ReadAll(c.Request().Body)
+			if err != nil {
+				return err
+			}
+			receivedBody = string(b)
+			return c.String(http.StatusOK, "POST OK")
+		}
+
+		wrappedPost := StrictEchoHandler(checkHandler, postHandler)
+
+		// 1. Get nonce
+		req1 := httptest.NewRequest(http.MethodPost, "/echo-post", strings.NewReader(expectedBody))
+		rec1 := httptest.NewRecorder()
+		c1 := e.NewContext(req1, rec1)
+		_ = wrappedPost(c1)
+
+		wwwAuth := rec1.Header().Get("WWW-Authenticate")
+		auth := ComputeAuth(wwwAuth, "/echo-post", "tam", "test", "POST")
+
+		// 2. Request with auth header and body
+		req2 := httptest.NewRequest(http.MethodPost, "/echo-post", strings.NewReader(expectedBody))
+		req2.Header.Set("Authorization", auth)
+		req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec2 := httptest.NewRecorder()
+		c2 := e.NewContext(req2, rec2)
+
+		err := wrappedPost(c2)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if rec2.Code != http.StatusOK {
+			t.Errorf("status = %d, want %d", rec2.Code, http.StatusOK)
+		}
+		if !postHandlerCalled {
+			t.Error("postHandler should have been called")
+		}
+		// println(receivedBody)
+		if receivedBody != expectedBody {
+			t.Errorf("received body = %q, want %q", receivedBody, expectedBody)
+		}
+	})
 }
 
 func TestDigestAuthClient(t *testing.T) {
